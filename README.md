@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./somnia_guardian.jpg" alt="Somnia Guardian Agent" width="420" />
+</p>
+
 # Somnia Sentinel - AI Reactive Guardian (Python)
 
 This repository contains a hackathon-ready baseline that demonstrates:
