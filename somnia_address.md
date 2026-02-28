@@ -1,0 +1,5 @@
+Somnia main net address:
+0x107119102c2EC84099cDce3D5eFDE2dcbf4DEB2a
+
+Somnia Testnet:
+0x107119102c2EC84099cDce3D5eFDE2dcbf4DEB2a
