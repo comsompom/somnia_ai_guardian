@@ -4,6 +4,7 @@ from pathlib import Path
 from web3 import Web3
 
 from agent.config import get_settings
+from agent.tx_utils import build_fee_params
 
 
 def main() -> None:
@@ -18,14 +19,14 @@ def main() -> None:
     account = w3.eth.account.from_key(cfg.private_key)
     contract = w3.eth.contract(address=cfg.vault_address, abi=artifact["abi"])
 
-    nonce = w3.eth.get_transaction_count(account.address)
+    nonce = w3.eth.get_transaction_count(account.address, "pending")
     tx = contract.functions.simulateAttack(40).build_transaction(
         {
             "from": account.address,
             "nonce": nonce,
             "chainId": cfg.chain_id,
             "gas": 200000,
-            "gasPrice": w3.eth.gas_price,
+            **build_fee_params(w3),
         }
     )
     signed = w3.eth.account.sign_transaction(tx, cfg.private_key)

@@ -30,37 +30,47 @@ async def _call_openai(session: aiohttp.ClientSession, payload: Dict) -> ModelDe
     cfg = get_settings()
     if not cfg.openai_api_key:
         return _heuristic_fallback(payload)
-
-    req_body = {
-        "model": cfg.openai_model,
-        "messages": [
-            {
-                "role": "system",
-                "content": "Classify event as attack or safe and reply as JSON "
-                'with keys: verdict, confidence, summary.',
-            },
-            {"role": "user", "content": str(payload)},
-        ],
-        "response_format": {"type": "json_object"},
-    }
     headers = {
         "Authorization": f"Bearer {cfg.openai_api_key}",
         "Content-Type": "application/json",
     }
-    async with session.post(
-        "https://api.openai.com/v1/chat/completions",
-        json=req_body,
-        headers=headers,
-        timeout=20,
-    ) as resp:
-        data = await resp.json()
-        content = data["choices"][0]["message"]["content"]
-        return ModelDecision(
-            model=f"openai:{cfg.openai_model}",
-            verdict="attack" if "attack" in content.lower() else "safe",
-            confidence=0.75,
-            summary=content,
-        )
+
+    for model_name in cfg.openai_models:
+        req_body = {
+            "model": model_name,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "Classify event as attack or safe and reply as JSON "
+                    'with keys: verdict, confidence, summary.',
+                },
+                {"role": "user", "content": str(payload)},
+            ],
+            "response_format": {"type": "json_object"},
+        }
+        try:
+            async with session.post(
+                "https://api.openai.com/v1/chat/completions",
+                json=req_body,
+                headers=headers,
+                timeout=20,
+            ) as resp:
+                if resp.status != 200:
+                    continue
+                data = await resp.json()
+                content = data["choices"][0]["message"]["content"]
+                if not isinstance(content, str) or not content.strip():
+                    continue
+                return ModelDecision(
+                    model=f"openai:{model_name}",
+                    verdict="attack" if "attack" in content.lower() else "safe",
+                    confidence=0.75,
+                    summary=content,
+                )
+        except Exception:
+            continue
+
+    return _heuristic_fallback(payload)
 
 
 async def _call_gemini(session: aiohttp.ClientSession, payload: Dict) -> ModelDecision:
@@ -72,23 +82,36 @@ async def _call_gemini(session: aiohttp.ClientSession, payload: Dict) -> ModelDe
         "Classify this event as attack or safe. Return compact text with verdict/confidence/summary. "
         f"Event: {payload}"
     )
-    url = (
-        "https://generativelanguage.googleapis.com/v1beta/models/"
-        f"{cfg.gemini_model}:generateContent?key={cfg.gemini_api_key}"
-    )
-    async with session.post(
-        url,
-        json={"contents": [{"parts": [{"text": prompt}]}]},
-        timeout=20,
-    ) as resp:
-        data = await resp.json()
-        text = data["candidates"][0]["content"]["parts"][0]["text"]
-        return ModelDecision(
-            model=f"gemini:{cfg.gemini_model}",
-            verdict="attack" if "attack" in text.lower() else "safe",
-            confidence=0.72,
-            summary=text,
+    for model_name in cfg.gemini_models:
+        url = (
+            "https://generativelanguage.googleapis.com/v1beta/models/"
+            f"{model_name}:generateContent?key={cfg.gemini_api_key}"
         )
+        try:
+            async with session.post(
+                url,
+                json={"contents": [{"parts": [{"text": prompt}]}]},
+                timeout=20,
+            ) as resp:
+                if resp.status != 200:
+                    continue
+                data = await resp.json()
+                candidates = data.get("candidates", [])
+                if not candidates:
+                    continue
+                text = candidates[0]["content"]["parts"][0].get("text", "")
+                if not text.strip():
+                    continue
+                return ModelDecision(
+                    model=f"gemini:{model_name}",
+                    verdict="attack" if "attack" in text.lower() else "safe",
+                    confidence=0.72,
+                    summary=text,
+                )
+        except Exception:
+            continue
+
+    return _heuristic_fallback(payload)
 
 
 def _majority_vote(decisions: List[ModelDecision]) -> Dict:

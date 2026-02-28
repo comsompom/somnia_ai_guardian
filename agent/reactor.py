@@ -3,18 +3,19 @@ from typing import Any
 from web3 import Web3
 
 from agent.config import get_settings
+from agent.tx_utils import build_fee_params
 
 
 def send_emergency_action(w3: Web3, contract: Any, account_address: str) -> str:
     cfg = get_settings()
-    nonce = w3.eth.get_transaction_count(account_address)
+    nonce = w3.eth.get_transaction_count(account_address, "pending")
     txn = contract.functions.emergencyAction().build_transaction(
         {
             "from": account_address,
             "nonce": nonce,
             "chainId": cfg.chain_id,
             "gas": 200000,
-            "gasPrice": w3.eth.gas_price,
+            **build_fee_params(w3),
         }
     )
     signed = w3.eth.account.sign_transaction(txn, private_key=cfg.private_key)

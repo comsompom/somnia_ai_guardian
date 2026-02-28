@@ -5,6 +5,7 @@ from solcx import compile_standard, install_solc
 from web3 import Web3
 
 from agent.config import get_settings
+from agent.tx_utils import build_fee_params
 
 
 CONTRACT_FILE = Path("contracts/MockVault.sol")
@@ -48,14 +49,14 @@ def main() -> None:
 
     account = w3.eth.account.from_key(cfg.private_key)
     factory = w3.eth.contract(abi=contract["abi"], bytecode=contract["bytecode"])
-    nonce = w3.eth.get_transaction_count(account.address)
+    nonce = w3.eth.get_transaction_count(account.address, "pending")
     tx = factory.constructor().build_transaction(
         {
             "from": account.address,
             "nonce": nonce,
             "chainId": cfg.chain_id,
             "gas": 2500000,
-            "gasPrice": w3.eth.gas_price,
+            **build_fee_params(w3),
         }
     )
     signed = w3.eth.account.sign_transaction(tx, cfg.private_key)

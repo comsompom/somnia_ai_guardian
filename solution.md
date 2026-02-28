@@ -14,7 +14,7 @@ Based on `description.md`, this repository now includes a Python-first implement
 
 ### Python Agent
 - `agent/listener.py`
-  - Watches `AttackSimulated` events via WSS.
+  - Watches `AttackSimulated` events via HTTP polling (works without WSS).
   - Sends event payload to AI models asynchronously.
   - Majority vote determines if it should call `emergencyAction()`.
 - `agent/analysis.py`
@@ -25,6 +25,7 @@ Based on `description.md`, this repository now includes a Python-first implement
 
 ### Deploy / Validation Scripts
 - `scripts/deploy.py`: compile + deploy contract.
+- `scripts/check_network.py`: validate RPC, chain id, and wallet balance.
 - `scripts/simulate_attack.py`: trigger attack event.
 - `scripts/check_status.py`: verify contract health and attack timestamp.
 
@@ -52,10 +53,21 @@ Copy `.env.example` to `.env` and set:
 - `PRIVATE_KEY`
 
 Optional AI config:
-- `OPENAI_API_KEY`, `OPENAI_MODEL`
-- `GEMINI_API_KEY`, `GEMINI_MODEL`
+- `OPENAI_API_KEY`, `OPENAI_MODELS` (comma-separated priority list)
+- `GEMINI_API_KEY`, `GEMINI_MODELS` (comma-separated priority list)
 
-### 4) Deploy Contract
+### 4) Validate Somnia Testnet Connection
+
+```bash
+python scripts/check_network.py
+```
+
+Check:
+- RPC is reachable
+- `network_chain_id` matches `.env` `CHAIN_ID`
+- wallet has testnet balance
+
+### 5) Deploy Contract
 
 ```bash
 python scripts/deploy.py
@@ -67,7 +79,7 @@ The script prints:
 Copy that value to `.env` as:
 - `VAULT_ADDRESS=<address>`
 
-### 5) Start the Guardian Listener
+### 6) Start the Guardian Listener
 
 ```bash
 python -m agent.listener
@@ -79,7 +91,7 @@ Expected output:
 - AI decision log with vote summary
 - emergency tx hash when triggered
 
-### 6) Simulate Attack
+### 7) Simulate Attack
 
 In another terminal:
 
@@ -89,7 +101,7 @@ python scripts/simulate_attack.py
 
 This emits `AttackSimulated`, and the listener should react quickly.
 
-### 7) Verify State
+### 8) Verify State
 
 ```bash
 python scripts/check_status.py
@@ -102,16 +114,27 @@ Expected after successful reaction:
 
 1. `simulateAttack` reduces vault health and emits event.
 2. Listener captures event in near real-time.
-3. AI fan-out queries 2 models concurrently.
-4. Majority vote decides if event is malicious.
-5. Reactor signs and sends `emergencyAction`.
+3. AI fan-out queries 2 providers concurrently.
+4. Each provider tries its model list in order and auto-falls back on bad/no response.
+5. Majority vote decides if event is malicious.
+6. Reactor signs and sends `emergencyAction`.
 
 ## Somnia Usage
 
 To use this on Somnia:
-- replace `RPC_HTTP_URL`, `RPC_WSS_URL`, and `CHAIN_ID` in `.env` with Somnia devnet/testnet values.
+- set `RPC_HTTP_URL=https://dream-rpc.somnia.network` and `CHAIN_ID=50312`.
+- `RPC_WSS_URL` can stay set, but listener currently uses HTTP polling.
 - fund the guardian wallet and redeploy.
 - keep the listener running locally.
+- run `python scripts/check_network.py` before deploy to confirm chain and balance.
+- transaction building supports EIP-1559 and legacy gas mode automatically.
+
+Somnia mainnet profile:
+- Network Name: `Somnia Mainnet`
+- RPC URL: `https://api.infra.mainnet.somnia.network`
+- Chain ID: `5031`
+- Currency Symbol: `SOMI`
+- Block Explorer: `https://mainnet.somnia.w3us.site` (optional if temporarily unavailable)
 
 ## Notes
 
