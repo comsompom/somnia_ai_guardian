@@ -20,19 +20,25 @@ def main() -> None:
     contract = w3.eth.contract(address=cfg.vault_address, abi=artifact["abi"])
 
     nonce = w3.eth.get_transaction_count(account.address, "pending")
+    estimated_gas = contract.functions.simulateAttack(40).estimate_gas({"from": account.address})
+    gas_limit = int(estimated_gas * 1.3)
     tx = contract.functions.simulateAttack(40).build_transaction(
         {
             "from": account.address,
             "nonce": nonce,
             "chainId": cfg.chain_id,
-            "gas": 200000,
+            "gas": gas_limit,
             **build_fee_params(w3),
         }
     )
     signed = w3.eth.account.sign_transaction(tx, cfg.private_key)
     tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
     receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=30)
+    if receipt.status != 1:
+        raise RuntimeError(f"simulateAttack failed tx={tx_hash.hex()} status={receipt.status}")
     print(f"simulateAttack tx: {receipt.transactionHash.hex()}")
+    print(f"gas_estimate={estimated_gas}")
+    print(f"gas_limit={gas_limit}")
 
 
 if __name__ == "__main__":

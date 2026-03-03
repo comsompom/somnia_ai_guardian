@@ -22,6 +22,7 @@ def compile_contract() -> dict:
             "language": "Solidity",
             "sources": {"MockVault.sol": {"content": source}},
             "settings": {
+                "evmVersion": "paris",
                 "outputSelection": {"*": {"*": ["abi", "evm.bytecode.object"]}},
             },
         },
@@ -50,12 +51,14 @@ def main() -> None:
     account = w3.eth.account.from_key(cfg.private_key)
     factory = w3.eth.contract(abi=contract["abi"], bytecode=contract["bytecode"])
     nonce = w3.eth.get_transaction_count(account.address, "pending")
+    estimated_gas = factory.constructor().estimate_gas({"from": account.address})
+    gas_limit = int(estimated_gas * 1.2)
     tx = factory.constructor().build_transaction(
         {
             "from": account.address,
             "nonce": nonce,
             "chainId": cfg.chain_id,
-            "gas": 2500000,
+            "gas": gas_limit,
             **build_fee_params(w3),
         }
     )
@@ -63,8 +66,13 @@ def main() -> None:
     tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
     receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
     address = receipt.contractAddress
+    if receipt.status != 1 or not address:
+        raise RuntimeError(f"Deployment failed tx={tx_hash.hex()} status={receipt.status}")
 
     print("Deployment complete")
+    print(f"deploy_tx_hash={tx_hash.hex()}")
+    print(f"gas_estimate={estimated_gas}")
+    print(f"gas_limit={gas_limit}")
     print(f"contract_address={address}")
     print("Add this to .env as VAULT_ADDRESS")
 
