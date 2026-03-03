@@ -1,5 +1,10 @@
 import json
 from pathlib import Path
+import sys
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from solcx import compile_standard, install_solc
 from web3 import Web3
@@ -8,8 +13,8 @@ from agent.config import get_settings
 from agent.tx_utils import build_fee_params
 
 
-CONTRACT_FILE = Path("contracts/MockVault.sol")
-BUILD_DIR = Path("build")
+CONTRACT_FILE = PROJECT_ROOT / "contracts" / "MockVault.sol"
+BUILD_DIR = PROJECT_ROOT / "build"
 ARTIFACT_FILE = BUILD_DIR / "mock_vault_artifact.json"
 SOLC_VERSION = "0.8.24"
 

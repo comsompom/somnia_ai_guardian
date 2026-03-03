@@ -1,10 +1,17 @@
 import json
 from pathlib import Path
+import sys
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from web3 import Web3
 
 from agent.config import get_settings
 from agent.tx_utils import build_fee_params
+
+ARTIFACT_FILE = PROJECT_ROOT / "build" / "mock_vault_artifact.json"
 
 
 def main() -> None:
@@ -13,8 +20,12 @@ def main() -> None:
         raise ValueError("PRIVATE_KEY is missing in .env")
     if not cfg.vault_address:
         raise ValueError("VAULT_ADDRESS is missing in .env")
+    if not ARTIFACT_FILE.exists():
+        raise FileNotFoundError(
+            f"Artifact not found at {ARTIFACT_FILE}. Run deploy first: python scripts/deploy.py"
+        )
 
-    artifact = json.loads(Path("build/mock_vault_artifact.json").read_text(encoding="utf-8"))
+    artifact = json.loads(ARTIFACT_FILE.read_text(encoding="utf-8"))
     w3 = Web3(Web3.HTTPProvider(cfg.rpc_http_url))
     account = w3.eth.account.from_key(cfg.private_key)
     contract = w3.eth.contract(address=cfg.vault_address, abi=artifact["abi"])

@@ -10,10 +10,15 @@ from agent.config import get_settings
 from agent.reactor import send_emergency_action
 
 
-CONTRACT_ARTIFACT_PATH = Path("build/mock_vault_artifact.json")
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+CONTRACT_ARTIFACT_PATH = PROJECT_ROOT / "build" / "mock_vault_artifact.json"
 
 
 def load_artifact() -> Dict[str, Any]:
+    if not CONTRACT_ARTIFACT_PATH.exists():
+        raise FileNotFoundError(
+            f"Artifact not found at {CONTRACT_ARTIFACT_PATH}. Run deploy first: python scripts/deploy.py"
+        )
     return json.loads(CONTRACT_ARTIFACT_PATH.read_text(encoding="utf-8"))
 
 
