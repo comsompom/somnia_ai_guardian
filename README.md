@@ -8,7 +8,7 @@
 
 - Short working example: [YouTube Demo](https://www.youtube.com/watch?v=DveZXUyY4p4)
 
-This repository contains a hackathon-ready baseline that demonstrates:
+This repository contains a ready baseline that demonstrates:
 - event listening from an EVM chain (Somnia-ready),
 - asynchronous multi-model AI analysis (OpenAI + Gemini),
 - automatic on-chain reaction via `emergencyAction()` when an attack is detected.
